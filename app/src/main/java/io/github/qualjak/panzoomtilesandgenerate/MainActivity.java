@@ -2,25 +2,22 @@ package io.github.qualjak.panzoomtilesandgenerate;
 
 import android.graphics.Point;
 import android.support.v4.view.GestureDetectorCompat;
-//import android.support.v4.view.ScaleGestureDetectorCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.GestureDetector;
 import android.view.MotionEvent;
-//import android.view.ScaleGestureDetector;
 //import android.view.View;
 import android.view.ViewGroup;
 import android.widget.OverScroller;
 import android.widget.RelativeLayout;
-import android.widget.Scroller;
 //import android.widget.TextView;
 
 public class MainActivity extends AppCompatActivity {
 
     private GestureDetectorCompat gestureDetector;
-    //    private ScaleGestureDetector scaleDetector;
-    //private float scaleFactor = 1.f, scrollOffsetX = 0.f, scrollOffsetY = 0.f;
+    private float scaleFactor = 1.f,
+            leftBound, rightBound, topBound, bottomBound;
     private static final float ZOOM_AMNT = 0.25f;
     private OverScroller scroller;
     private static final String DEBUG_TAG = "Gestures";
@@ -38,16 +35,17 @@ public class MainActivity extends AppCompatActivity {
         params.height = 3000;
         params.width = 3000;
 
-//        TextView hello = (TextView)findViewById(R.id.hello);
-//        hello.setLayerType(View.LAYER_TYPE_SOFTWARE, null);
-
         Point dimensions = new Point();
         getWindowManager().getDefaultDisplay().getSize(dimensions);
         screenWidth = dimensions.x;
         screenHeight = dimensions.y;
 
+        if(scaleFactor == 1.f) {
+            leftBound = 0.f; rightBound = 3000;
+            topBound = 0.f; bottomBound = 3000;
+        }
+
         gestureDetector = new GestureDetectorCompat(this, new SimpleGestureListener());
-//        scaleDetector = new ScaleGestureDetector(this, new SimpleScaleListener());
         scroller = new OverScroller(this);
     }
 
@@ -60,7 +58,6 @@ public class MainActivity extends AppCompatActivity {
         @Override
         public boolean onDown(MotionEvent event) {
             scroller.forceFinished(true);
-//            Log.d(DEBUG_TAG, "onDown: " + event.toString());
             return true;
         }
 
@@ -72,18 +69,16 @@ public class MainActivity extends AppCompatActivity {
 
             scroller.fling(layout.getScrollX(), layout.getScrollY(),
                     ((int) (-velocityX / scaleFactor)), ((int) (-velocityY / scaleFactor)),
-                    //FIX THIS AND OTHER APPROPRIATE PLACES (mainly the springBack)
-                    (int)-scrollOffsetX,
-                    (int) ((layout.getWidth() - screenWidth)*scaleFactor - scrollOffsetX),
-                    (int)-scrollOffsetY,
-                    (int) ((layout.getHeight() - screenHeight)*scaleFactor - scrollOffsetY));
+                    (int)leftBound,
+                    (int) rightBound - screenWidth,
+                    (int)topBound,
+                    (int) bottomBound - screenHeight);
             (new updateScroll(scroller)).start();
             return true;
         }
 
         @Override
         public boolean onScroll(MotionEvent e1, MotionEvent e2, float distanceX, float distanceY) {
-            //Log.d(DEBUG_TAG, "onScroll: " + e1.toString()+e2.toString());
             int newX = layout.getScrollX() + (int) distanceX;
             int newY = layout.getScrollY() + (int) distanceY;
             layout.scrollTo(newX, newY);
@@ -93,30 +88,19 @@ public class MainActivity extends AppCompatActivity {
         @Override
         public boolean onDoubleTap(MotionEvent e) {
             scaleFactor += ZOOM_AMNT;
-            //scrollOffsetX = scrollOffsetX + layout.getScrollX() + screenWidth/2;
-            //scrollOffsetY = scrollOffsetY + layout.getScrollY() + screenHeight/2;
-            Log.d(DEBUG_TAG, "scrollX: " + layout.getScrollX() + "| scrollY: " +
-                    layout.getScrollY() + '\n' + "| layoutX: " + layout.getWidth()
-                    + "| layoutY: " + layout.getHeight());
-            layout.scrollTo(0, 0);
+            int width = layout.getWidth(), height = layout.getHeight();
+            float widthDifference = width*((scaleFactor - 1)/2);
+            float heightDifference = height*((scaleFactor - 1)/2);
+            rightBound = width + widthDifference;
+            leftBound = 0 - widthDifference;
+            topBound = 0 - heightDifference;
+            bottomBound = height + heightDifference;
             layout.setScaleX(scaleFactor);
             layout.setScaleY(scaleFactor);
-            Log.d(DEBUG_TAG, "POST: scrollX: " + layout.getScrollX() + "| scrollY: " +
-                    layout.getScrollY() + '\n' + "| layoutX: " + layout.getWidth()
-                    + "| layoutY: " + layout.getHeight());
             return true;
         }
 
     }
-
-//    private class SimpleScaleListener extends ScaleGestureDetector.SimpleOnScaleGestureListener {
-//        @Override
-//        public boolean onScale(ScaleGestureDetector detector) {
-//            scaleFactor *= detector.getScaleFactor();
-//            scaleFactor = Math.max(0.1f, Math.min(scaleFactor, 5.0f));
-//            return true;
-//        }
-//    }
 
     private class updateScroll extends Thread {
         private OverScroller sc;
@@ -131,13 +115,6 @@ public class MainActivity extends AppCompatActivity {
                 int currX = sc.getCurrX(), currY = sc.getCurrY();
                 sc.computeScrollOffset();
                 layout.scrollTo(currX, currY);
-//                runOnUiThread(new Runnable() {
-//                    @Override
-//                    public void run() {
-//                        layout.invalidate();
-//                    }
-//                });
-//                Log.d(DEBUG_TAG, sc.getCurrX() + " " + sc.getCurrY());
                 Log.d(DEBUG_TAG, "scrollX: " + layout.getScrollX() + "| scrollY: " +
                         layout.getScrollY() /* '\n' + "| currX: " + currX + "| currY: " + currY*/);
                 try {
@@ -147,9 +124,9 @@ public class MainActivity extends AppCompatActivity {
                 }
             }
             sc.springBack(layout.getScrollX(), layout.getScrollY(),
-                    (int)-scrollOffsetX, (int)(layout.getWidth() - scrollOffsetX),
-                    (int)-scrollOffsetY, (int)(layout.getHeight() - scrollOffsetY));
-//            Log.d(DEBUG_TAG, "finished scrolling");
+                    (int)leftBound, (int)rightBound,
+                    (int)topBound, (int)bottomBound);
+            Log.d(DEBUG_TAG, leftBound + "*R* " + rightBound + "*T* " + topBound + "*B* " + bottomBound);
         }
     }
 }
